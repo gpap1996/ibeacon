@@ -57,8 +57,8 @@ const needsPermissions = computed(() => {
 const BEACON_REGION = {
   uuid: 'b9407f30-f5f8-466e-aff9-25556b57fe6d',
   identifier: 'b4a6d2890fa6a8bf3825adff5fcf8b35',
-  major: 19,
-  minor: 1625,
+  // major: 19,
+  // minor: 1625,
 };
 
 // Methods

@@ -1,42 +1,49 @@
 <template>
-  <div class="beacon-scanner">
-    <h2>Estimote Scanner</h2>
+  <ion-page>
+    <ion-header>
+      <ion-toolbar>
+        <ion-title>Estimote Beacons</ion-title>
+      </ion-toolbar>
+    </ion-header>
 
-    <!-- Status and Controls -->
-    <div class="controls">
-      <button @click="startScanning" :disabled="isScanning" class="start-btn">Start Estimote Scanning</button>
-      <button @click="stopScanning" :disabled="!isScanning" class="stop-btn">Stop Scanning</button>
-    </div>
+    <ion-content class="ion-padding">
+      <div v-if="needsPermissions">
+        <ion-text color="warning">
+          <h2>Permissions Required</h2>
+          <p>This app needs location and bluetooth permissions to scan for beacons.</p>
+        </ion-text>
+        <ion-button @click="checkPermissions">Check Permissions</ion-button>
+      </div>
 
-    <!-- Permissions Status -->
-    <div class="permissions" v-if="permissions">
-      <p>Location Permission: {{ permissions.location }}</p>
-      <p>Bluetooth Permission: {{ permissions.bluetooth }}</p>
-      <button @click="requestPermissions" v-if="needsPermissions">Request Permissions</button>
-    </div>
+      <div v-else>
+        <ion-button @click="isScanning ? stopScanning() : startScanning()" :color="isScanning ? 'danger' : 'primary'">
+          {{ isScanning ? 'Stop Scanning' : 'Start Scanning' }}
+        </ion-button>
+        <div class="beacon-list">
+          <div v-if="beacons.length > 0" class="beacon-items">
+            <div v-for="beacon in beacons" :key="beacon.identifier" class="beacon-item">
+              <div class="beacon-header">
+                <h2>{{ beacon.tag }}</h2>
+                <span class="badge" :class="beacon.proximity">{{ beacon.proximity }}</span>
+              </div>
+              <p class="beacon-info">
+                <span class="icon">📍</span>
+                Distance: {{ beacon.distance }}m
+              </p>
+              <p v-if="beacon.lastSeen" class="beacon-info">
+                <span class="icon">⏱️</span>
+                Last seen: {{ formatLastSeen(beacon.lastSeen) }}
+              </p>
+            </div>
+          </div>
 
-    <!-- Beacons List -->
-    <div class="beacons-list" v-if="beacons.length">
-      <h3>Detected Estimote Beacons</h3>
-      <div
-        v-for="beacon in beacons"
-        :key="`${beacon.uuid}-${beacon.major}-${beacon.minor}`"
-        class="beacon-item"
-        :class="beacon.proximity"
-      >
-        <h4>Estimote Beacon {{ beacon.major }}.{{ beacon.minor }}</h4>
-        <div class="beacon-details">
-          <p>UUID: {{ beacon.uuid }}</p>
-          <p>Distance: {{ beacon.distance }}m</p>
-          <p>Raw Distance: {{ beacon.rawDistance }}m</p>
-          <p>RSSI: {{ beacon.rssi }}dBm</p>
-          <p>Proximity: {{ beacon.proximity }}</p>
+          <div v-else class="beacon-empty">
+            <p>{{ isScanning ? 'Searching for beacons...' : 'No beacons found. Press Start Scanning to begin.' }}</p>
+          </div>
         </div>
       </div>
-    </div>
-
-    <p v-else-if="isScanning" class="no-beacons">Scanning for Estimote beacons...</p>
-  </div>
+    </ion-content>
+  </ion-page>
 </template>
 
 <script setup>
@@ -54,99 +61,107 @@ const needsPermissions = computed(() => {
   return permissions.value.location !== 'granted' || permissions.value.bluetooth !== 'granted';
 });
 
-// Default Estimote beacon configuration
-const BEACON_REGION = {
-  uuid: 'B9407F30-F5F8-466E-AFF9-25556B57FE6D', // Estimote's default UUID
-  identifier: 'b4a6d2890fa6a8bf3825adff5fcf8b35',
-  // Not specifying major/minor to detect all Estimote beacons
+// Estimote Proximity SDK configuration
+const BEACON_CONFIG = {
+  tags: ['fridge', 'desk'], // Example tags to monitor
+  identifier: 'test-zone', // A unique name for this scanning zone
 };
 
 // Methods
 async function checkPermissions() {
   try {
-    const status = await EstimoteTracker.checkPermissions();
-    console.log('Estimote Permission status:', status);
-    permissions.value = status;
-
-    if (status.location !== 'granted') {
-      console.log('Location permission is not granted:', status.location);
-    }
-    if (status.bluetooth !== 'granted') {
-      console.log('Bluetooth permission is not granted:', status.bluetooth);
-    }
-
-    return status;
+    const perms = await EstimoteTracker.checkPermissions();
+    permissions.value = perms;
   } catch (error) {
-    console.error('Error checking Estimote permissions:', error);
-    throw error;
-  }
-}
-
-async function requestPermissions() {
-  try {
-    const status = await EstimoteTracker.requestPermissions();
-    console.log('New Estimote permission status:', JSON.stringify(status));
-    permissions.value = status;
-    return status;
-  } catch (error) {
-    console.error('Error requesting Estimote permissions:', error);
-    throw error;
+    console.error('Error checking permissions:', error);
   }
 }
 
 async function startScanning() {
   try {
-    const perms = await EstimoteTracker.checkPermissions();
-    console.log('Current Estimote permissions:', perms);
-    permissions.value = perms;
-
-    if (perms.location !== 'granted' || perms.bluetooth !== 'granted') {
-      console.log('Requesting Estimote permissions...');
-      const newPerms = await EstimoteTracker.requestPermissions();
-      permissions.value = newPerms;
-      console.log('New Estimote permissions:', newPerms);
-    }
-
-    // Check Bluetooth status
-    if (navigator && navigator.bluetooth) {
-      console.log('Checking if Bluetooth is available...');
-      const available = await navigator.bluetooth.getAvailability();
-      console.log('Bluetooth available:', available);
-    }
-
-    console.log('Starting Estimote beacon ranging...');
+    const rangingConfig = {
+      identifier: BEACON_CONFIG.identifier,
+      tags: BEACON_CONFIG.tags,
+    };
+    console.log('Starting ranging with config:', JSON.stringify(rangingConfig));
+    await EstimoteTracker.startRanging(rangingConfig);
+    console.log('Started ranging beacons');
     isScanning.value = true;
-    await EstimoteTracker.startRanging(BEACON_REGION);
-    console.log('Estimote ranging started successfully');
   } catch (error) {
-    console.error('Error in Estimote startScanning:', error);
-    alert(`Failed to start Estimote scanning: ${error.message}`);
-    isScanning.value = false;
+    console.error('Error starting ranging:', error);
+    alert('Failed to start ranging: ' + error.message);
   }
 }
 
 const stopScanning = async () => {
   try {
-    await EstimoteTracker.stopRanging(BEACON_REGION);
+    await EstimoteTracker.stopRanging({
+      identifier: BEACON_CONFIG.identifier,
+    });
+    console.log('Stopped ranging');
     isScanning.value = false;
     beacons.value = [];
   } catch (error) {
-    console.error('Failed to stop Estimote scanning:', error);
+    console.error('Error stopping ranging:', error);
   }
 };
 
+// Utility functions
+function formatLastSeen(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ago`;
+}
+
 // Event Listeners
-const setupBeaconListener = () => {
-  EstimoteTracker.addListener('beaconsRanged', (data) => {
-    console.log('Estimote Beacons ranged:', JSON.stringify(data));
-    beacons.value = data.beacons;
-  });
-};
+EstimoteTracker.addListener('beaconDidEnter', (data) => {
+  console.log('beaconDidEnter:', JSON.stringify(data));
+  if (data && data.beacons) {
+    data.beacons.forEach((beacon) => {
+      const existingIndex = beacons.value.findIndex((b) => b.tag === beacon.tag);
+      if (existingIndex === -1) {
+        beacons.value.push({
+          ...beacon,
+          lastSeen: Date.now(),
+          distance: beacon.proximity === 'near' ? 2 : 5,
+        });
+      }
+    });
+  }
+});
+
+EstimoteTracker.addListener('beaconDidExit', (data) => {
+  console.log('beaconDidExit:', JSON.stringify(data));
+  if (data && data.beacons) {
+    data.beacons.forEach((beacon) => {
+      const index = beacons.value.findIndex((b) => b.tag === beacon.tag);
+      if (index !== -1) {
+        beacons.value.splice(index, 1);
+      }
+    });
+  }
+});
+
+EstimoteTracker.addListener('beaconsDidRangeEvent', (data) => {
+  console.log('beaconsDidRangeEvent:', JSON.stringify(data));
+  if (data && data.beacons) {
+    data.beacons.forEach((beacon) => {
+      const existingIndex = beacons.value.findIndex((b) => b.tag === beacon.tag);
+      if (existingIndex !== -1) {
+        beacons.value[existingIndex] = {
+          ...beacon,
+          lastSeen: Date.now(),
+          distance: beacon.proximity === 'near' ? 2 : 5,
+        };
+      }
+    });
+  }
+});
 
 // Lifecycle
 onMounted(async () => {
   await checkPermissions();
-  setupBeaconListener();
 });
 
 onUnmounted(() => {
@@ -157,82 +172,69 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.beacon-scanner {
-  padding: 1rem;
+.beacon-list {
+  margin-top: 20px;
+  padding: 0 15px;
 }
 
-.controls {
-  margin: 1rem 0;
+.beacon-items {
   display: flex;
-  gap: 1rem;
-}
-
-button {
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.start-btn {
-  background-color: #00b8d4; /* Estimote blue */
-  color: white;
-}
-
-.stop-btn {
-  background-color: #f44336;
-  color: white;
-}
-
-.permissions {
-  margin: 1rem 0;
-  padding: 1rem;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-}
-
-.beacons-list {
-  margin-top: 1rem;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .beacon-item {
-  margin: 1rem 0;
-  padding: 1rem;
-  border-radius: 4px;
   background-color: #fff;
+  border-radius: 8px;
+  padding: 15px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #00b8d4; /* Estimote blue */
 }
 
-.beacon-item.immediate {
-  border-left: 4px solid #4caf50;
+.beacon-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
 }
 
-.beacon-item.near {
-  border-left: 4px solid #ffc107;
+.beacon-header h2 {
+  margin: 0;
+  font-size: 1.2em;
+  color: #333;
 }
 
-.beacon-item.far {
-  border-left: 4px solid #f44336;
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.9em;
+  font-weight: 500;
 }
 
-.beacon-details {
-  margin-top: 0.5rem;
-  font-size: 0.9rem;
+.badge.near {
+  background-color: #4caf50;
+  color: white;
 }
 
-.beacon-details p {
-  margin: 0.25rem 0;
+.badge.far {
+  background-color: #ff9800;
+  color: white;
 }
 
-.no-beacons {
+.beacon-info {
+  margin: 8px 0;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  font-size: 1.2em;
+}
+
+.beacon-empty {
   text-align: center;
   color: #666;
-  margin-top: 2rem;
+  padding: 20px;
 }
 </style>

@@ -22,6 +22,7 @@ import { RouterLink, RouterView } from 'vue-router';
 }
 
 nav {
+  margin-top: 30px;
   padding: 1rem;
   background-color: #f8f9fa;
 }
