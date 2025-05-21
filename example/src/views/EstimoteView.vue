@@ -41,7 +41,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { EstimoteBeaconTracker } from 'ibeacon-tracker';
+import { EstimoteTracker } from 'ibeacon-tracker';
 
 // State
 const isScanning = ref(false);
@@ -57,14 +57,14 @@ const needsPermissions = computed(() => {
 // Default Estimote beacon configuration
 const BEACON_REGION = {
   uuid: 'B9407F30-F5F8-466E-AFF9-25556B57FE6D', // Estimote's default UUID
-  identifier: 'EstimoteBeacons',
+  identifier: 'b4a6d2890fa6a8bf3825adff5fcf8b35',
   // Not specifying major/minor to detect all Estimote beacons
 };
 
 // Methods
 async function checkPermissions() {
   try {
-    const status = await EstimoteBeaconTracker.checkPermissions();
+    const status = await EstimoteTracker.checkPermissions();
     console.log('Estimote Permission status:', status);
     permissions.value = status;
 
@@ -84,7 +84,7 @@ async function checkPermissions() {
 
 async function requestPermissions() {
   try {
-    const status = await EstimoteBeaconTracker.requestPermissions();
+    const status = await EstimoteTracker.requestPermissions();
     console.log('New Estimote permission status:', JSON.stringify(status));
     permissions.value = status;
     return status;
@@ -96,13 +96,13 @@ async function requestPermissions() {
 
 async function startScanning() {
   try {
-    const perms = await EstimoteBeaconTracker.checkPermissions();
+    const perms = await EstimoteTracker.checkPermissions();
     console.log('Current Estimote permissions:', perms);
     permissions.value = perms;
 
     if (perms.location !== 'granted' || perms.bluetooth !== 'granted') {
       console.log('Requesting Estimote permissions...');
-      const newPerms = await EstimoteBeaconTracker.requestPermissions();
+      const newPerms = await EstimoteTracker.requestPermissions();
       permissions.value = newPerms;
       console.log('New Estimote permissions:', newPerms);
     }
@@ -116,7 +116,7 @@ async function startScanning() {
 
     console.log('Starting Estimote beacon ranging...');
     isScanning.value = true;
-    await EstimoteBeaconTracker.startRanging(BEACON_REGION);
+    await EstimoteTracker.startRanging(BEACON_REGION);
     console.log('Estimote ranging started successfully');
   } catch (error) {
     console.error('Error in Estimote startScanning:', error);
@@ -127,7 +127,7 @@ async function startScanning() {
 
 const stopScanning = async () => {
   try {
-    await EstimoteBeaconTracker.stopRanging(BEACON_REGION);
+    await EstimoteTracker.stopRanging(BEACON_REGION);
     isScanning.value = false;
     beacons.value = [];
   } catch (error) {
@@ -137,7 +137,7 @@ const stopScanning = async () => {
 
 // Event Listeners
 const setupBeaconListener = () => {
-  EstimoteBeaconTracker.addListener('beaconsRanged', (data) => {
+  EstimoteTracker.addListener('beaconsRanged', (data) => {
     console.log('Estimote Beacons ranged:', JSON.stringify(data));
     beacons.value = data.beacons;
   });

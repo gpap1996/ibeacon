@@ -21,6 +21,13 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://jitpack.io' }
+        maven { 
+            url "https://estimote.jfrog.io/artifactory/default-maven-remote-cache"
+        }
+        maven {
+            url "https://estimote.jfrog.io/artifactory/android-proximity-sdk"
+        }
     }
 }
 
