@@ -1,0 +1,1 @@
+This is a capacitor plugin for ranging and monitoring beacons using the ibeacon protocol to track estimote beacons (beacause their sdk sucks). Can you make me a ranging implemantation ? Let's start with only the android implementation until we make it work and then we will proceed with the ios one.
