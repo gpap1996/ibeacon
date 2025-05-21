@@ -8,10 +8,8 @@ export interface BeaconData {
 }
 
 export interface BeaconRegion {
-  uuid: string;
   identifier: string;
-  major?: number;
-  minor?: number;
+  tag: string;
 }
 
 export interface BeaconTrackerPlugin {

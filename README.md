@@ -87,9 +87,7 @@ stopRanging(options: BeaconRegion) => Promise<void>
 
 | Prop             | Type                |
 | ---------------- | ------------------- |
-| **`uuid`**       | <code>string</code> |
 | **`identifier`** | <code>string</code> |
-| **`major`**      | <code>number</code> |
-| **`minor`**      | <code>number</code> |
+| **`tag`**        | <code>string</code> |
 
 </docgen-api>

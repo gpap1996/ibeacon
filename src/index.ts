@@ -6,5 +6,9 @@ const BeaconTracker = registerPlugin<BeaconTrackerPlugin>('BeaconTracker', {
   web: () => import('./web').then((m) => new m.BeaconTrackerWeb()),
 });
 
+const EstimoteTracker = registerPlugin<BeaconTrackerPlugin>('EstimoteBeaconTracker', {
+  web: () => import('./web').then((m) => new m.BeaconTrackerWeb()),
+});
+
 export * from './definitions';
-export { BeaconTracker };
+export { BeaconTracker, EstimoteTracker };
