@@ -6,9 +6,17 @@ export interface BeaconData {
   attachments?: { [key: string]: string };
 }
 
+export type RangeType = 'near' | 'far' | 'custom';
+
+export interface BeaconRangeOptions {
+  type: RangeType;
+  customDistance?: number; // in meters, only used when type is 'custom'
+}
+
 export interface BeaconRegion {
   identifier: string;
-  tag: string;
+  tags: string[];
+  range?: BeaconRangeOptions; // If not provided, defaults to 'near'
 }
 
 export interface BeaconTrackerPlugin {

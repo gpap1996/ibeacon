@@ -2,6 +2,8 @@ package com.mobics.estimote;
 
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.util.Log;
@@ -26,10 +28,9 @@ import com.estimote.proximity_sdk.api.ProximityZoneContext;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @CapacitorPlugin(name = "EstimoteBeaconTracker", permissions = {
-        @Permission(strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }),
+        @Permission(strings = { Manifest.permission.ACCESS_FINE_LOCATION }),
         @Permission(strings = { Manifest.permission.BLUETOOTH_SCAN,
                 Manifest.permission.BLUETOOTH_CONNECT }, alias = "bluetooth")
 })
@@ -38,10 +39,84 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
     private ProximityObserver proximityObserver;
     private ProximityObserver.Handler observationHandler;
     private Map<String, ProximityZone> activeZones = new HashMap<>();
+    private BluetoothAdapter bluetoothAdapter;
 
     @Override
     public void load() {
-        // We'll initialize the observer in startRanging
+        BluetoothManager bluetoothManager = (BluetoothManager) getContext().getSystemService(Context.BLUETOOTH_SERVICE);
+        bluetoothAdapter = bluetoothManager.getAdapter();
+    }
+
+    private boolean checkBluetoothEnabled() {
+        return bluetoothAdapter != null && bluetoothAdapter.isEnabled();
+    }
+
+    @PluginMethod
+    public void checkPermissions(PluginCall call) {
+        JSObject permissionsResultObject = new JSObject();
+
+        // Check location permission
+        if (ActivityCompat.checkSelfPermission(getContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            permissionsResultObject.put("location", "granted");
+        } else {
+            permissionsResultObject.put("location", "denied");
+        }
+
+        // Check Bluetooth permissions for Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            boolean bluetoothScan = ActivityCompat.checkSelfPermission(getContext(),
+                    Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED;
+            boolean bluetoothConnect = ActivityCompat.checkSelfPermission(getContext(),
+                    Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+
+            permissionsResultObject.put("bluetooth", (bluetoothScan && bluetoothConnect) ? "granted" : "denied");
+        } else {
+            permissionsResultObject.put("bluetooth", "granted");
+        }
+
+        // Add Bluetooth state
+        permissionsResultObject.put("bluetoothEnabled", checkBluetoothEnabled());
+
+        call.resolve(permissionsResultObject);
+    }
+
+    @PluginMethod
+    public void requestPermissions(PluginCall call) {
+        requestAllPermissions(call, "permissionsCallback");
+    }
+
+    @PermissionCallback
+    private void permissionsCallback(PluginCall call) {
+        checkPermissions(call);
+    }
+
+    private boolean hasRequiredPermissions(PluginCall call) {
+        // Check location permission first
+        if (ActivityCompat.checkSelfPermission(getContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            call.reject("Location permission is required");
+            return false;
+        }
+
+        // Check Bluetooth permissions for Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (ActivityCompat.checkSelfPermission(getContext(),
+                    Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED ||
+                    ActivityCompat.checkSelfPermission(getContext(),
+                            Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                call.reject("Bluetooth permissions are required for Android 12+");
+                return false;
+            }
+        }
+
+        // Check if Bluetooth is enabled
+        if (!checkBluetoothEnabled()) {
+            call.reject("Bluetooth must be enabled");
+            return false;
+        }
+
+        return true;
     }
 
     @PluginMethod
@@ -70,19 +145,61 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
                     .withTelemetryReportingDisabled()
                     .withAnalyticsReportingDisabled()
                     .withEstimoteSecureMonitoringDisabled()
-                    .build();
-
-            // Create a zone for each tag
+                    .build(); // Create a zone for each tag
             for (int i = 0; i < tagsArray.length(); i++) {
                 try {
                     String tag = tagsArray.getString(i);
-                    ProximityZone zone = new ProximityZoneBuilder()
-                            .forTag(tag)
-                            .inNearRange()
-                            // .inNearRange(): //approximately 0-3 meters
-                            // .inFarRange(): //approximately 3-7 meters
-                            // .inCustomRange(double)//lets you specify a custom range, but it's still an
-                            // approximation
+                    JSObject rangeOptions = call.getObject("range"); // Start building the zone
+                    ProximityZoneBuilder zoneBuilder = new ProximityZoneBuilder();
+                    ProximityZoneBuilder.CallbackBuilder callbackBuilder;
+
+                    // Configure the range based on options and get the callback builder
+                    if (rangeOptions != null) {
+                        String rangeType = rangeOptions.getString("type", "near");
+                        Log.i(TAG, "Setting range type: " + rangeType + " for tag: " + tag);
+
+                        switch (rangeType) {
+                            case "far":
+                                // Far range is approximately 7m
+                                Log.i(TAG, "Using built-in far range (approximately 7m) for tag: " + tag);
+                                callbackBuilder = zoneBuilder.forTag(tag).inFarRange();
+                                break;
+                            case "custom":
+                                Double customDistance = rangeOptions.getDouble("customDistance");
+                                if (customDistance != null && customDistance > 0) {
+                                    // Validate the custom range is a reasonable value
+                                    if (customDistance < 0.5) {
+                                        Log.w(TAG, "Custom distance too small, using 0.5m for tag: " + tag);
+                                        callbackBuilder = zoneBuilder.forTag(tag).inCustomRange(0.5);
+                                    } else if (customDistance > 70.0) {
+                                        Log.w(TAG, "Custom distance too large, using 70m for tag: " + tag);
+                                        callbackBuilder = zoneBuilder.forTag(tag).inCustomRange(70.0);
+                                    } else {
+                                        Log.i(TAG, "Using custom range: " + customDistance + "m for tag: " + tag);
+                                        callbackBuilder = zoneBuilder.forTag(tag).inCustomRange(customDistance);
+                                    }
+                                } else {
+                                    Log.w(TAG,
+                                            "Invalid or missing custom distance, falling back to near range for tag: "
+                                                    + tag);
+                                    callbackBuilder = zoneBuilder.forTag(tag).inNearRange();
+                                }
+                                break;
+                            case "near":
+                            default:
+                                // Near range is approximately 3m
+                                Log.i(TAG, "Using built-in near range (approximately 3m) for tag: " + tag);
+                                callbackBuilder = zoneBuilder.forTag(tag).inNearRange();
+                                break;
+                        }
+                    } else {
+                        Log.i(TAG, "No range options provided, using default near range (approximately 3m) for tag: "
+                                + tag);
+                        callbackBuilder = zoneBuilder.forTag(tag).inNearRange();
+                    }
+
+                    // Build the final zone with callbacks
+                    ProximityZone zone = callbackBuilder
                             .onEnter(context -> {
                                 Log.d(TAG, "Beacon entered range - Tag: " + tag);
                                 notifyBeaconEvent("beaconDidEnter", context, tag, "near");
@@ -148,86 +265,5 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
         }
         activeZones.clear();
         call.resolve();
-    }
-
-    private boolean hasRequiredPermissions(PluginCall call) {
-        boolean fineLocation = ActivityCompat.checkSelfPermission(getContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        boolean coarseLocation = ActivityCompat.checkSelfPermission(getContext(),
-                Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        boolean locationGranted = fineLocation || coarseLocation;
-
-        boolean bluetoothGranted = true;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            bluetoothGranted = ActivityCompat.checkSelfPermission(getContext(),
-                    Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
-                    ActivityCompat.checkSelfPermission(getContext(),
-                            Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
-        }
-
-        if (!locationGranted || !bluetoothGranted) {
-            call.reject("Missing required permissions. Please grant all permissions first.");
-            return false;
-        }
-
-        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (bluetoothAdapter == null) {
-            call.reject("Device doesn't support Bluetooth");
-            return false;
-        }
-
-        if (!bluetoothAdapter.isEnabled()) {
-            call.reject("Please enable Bluetooth to start scanning");
-            return false;
-        }
-
-        return true;
-    }
-
-    @PluginMethod
-    @Override
-    public void checkPermissions(PluginCall call) {
-        if (hasRequiredPermissions(null)) {
-            JSObject result = new JSObject();
-            result.put("location", "granted");
-            result.put("bluetooth", "granted");
-            call.resolve(result);
-        } else {
-            // Save the call for later
-            bridge.saveCall(call);
-
-            // Request permissions
-            String[] permissions;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                permissions = new String[] {
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION,
-                        Manifest.permission.BLUETOOTH_SCAN,
-                        Manifest.permission.BLUETOOTH_CONNECT
-                };
-            } else {
-                permissions = new String[] {
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                };
-            }
-
-            pluginRequestPermissions(permissions, 1);
-        }
-    }
-
-    @PermissionCallback
-    private void checkPermissionsCallback(PluginCall call) {
-        if (hasRequiredPermissions(null)) {
-            JSObject result = new JSObject();
-            result.put("location", "granted");
-            result.put("bluetooth", "granted");
-            call.resolve(result);
-        } else {
-            JSObject result = new JSObject();
-            result.put("location", "denied");
-            result.put("bluetooth", "denied");
-            call.reject("Permissions were not granted");
-        }
     }
 }

@@ -18,6 +18,7 @@ npx cap sync
 * [`startRanging(...)`](#startranging)
 * [`stopRanging(...)`](#stopranging)
 * [Interfaces](#interfaces)
+* [Type Aliases](#type-aliases)
 
 </docgen-index>
 
@@ -85,9 +86,26 @@ stopRanging(options: BeaconRegion) => Promise<void>
 
 #### BeaconRegion
 
-| Prop             | Type                |
-| ---------------- | ------------------- |
-| **`identifier`** | <code>string</code> |
-| **`tag`**        | <code>string</code> |
+| Prop             | Type                                                              |
+| ---------------- | ----------------------------------------------------------------- |
+| **`identifier`** | <code>string</code>                                               |
+| **`tags`**       | <code>string[]</code>                                             |
+| **`range`**      | <code><a href="#beaconrangeoptions">BeaconRangeOptions</a></code> |
+
+
+#### BeaconRangeOptions
+
+| Prop                 | Type                                            |
+| -------------------- | ----------------------------------------------- |
+| **`type`**           | <code><a href="#rangetype">RangeType</a></code> |
+| **`customDistance`** | <code>number</code>                             |
+
+
+### Type Aliases
+
+
+#### RangeType
+
+<code>'near' | 'far' | 'custom'</code>
 
 </docgen-api>
