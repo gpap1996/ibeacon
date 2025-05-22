@@ -56,6 +56,38 @@
           </button>
         </div>
 
+        <div class="settings">
+          <div class="setting-group">
+            <label for="range-select">Scan Range:</label>
+            <select id="range-select" v-model="selectedRange" :disabled="isScanning" class="select-input">
+              <option v-for="option in RANGE_OPTIONS" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+            <div v-if="selectedRange === 'custom'" class="custom-range">
+              <label for="custom-distance">Distance (meters):</label>
+              <input
+                id="custom-distance"
+                type="number"
+                v-model="customDistance"
+                min="0.5"
+                max="70"
+                step="0.5"
+                :disabled="isScanning"
+                class="number-input"
+              />
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="enableBackgroundScanning" :disabled="isScanning" />
+              Enable Background Scanning
+            </label>
+            <div class="hint">When enabled, scanning will continue even when app is in background</div>
+          </div>
+        </div>
+
         <div class="beacon-list">
           <div v-if="beacons.length > 0" class="beacon-items">
             <div v-for="beacon in beacons" :key="beacon.identifier" class="beacon-item">
@@ -102,6 +134,7 @@ const isScanning = ref(false);
 const beacons = ref([]);
 const selectedRange = ref('near');
 const customDistance = ref(1.0);
+const enableBackgroundScanning = ref(false); // New background scanning toggle
 const permissionsState = ref({
   location: 'denied',
   bluetooth: 'denied',
@@ -158,6 +191,7 @@ async function startScanning() {
         type: selectedRange.value,
         ...(selectedRange.value === 'custom' ? { customDistance: parseFloat(customDistance.value) } : {}),
       },
+      enableBackgroundScanning: enableBackgroundScanning.value, // Add background scanning option
     };
 
     console.log('Starting ranging with config:', rangingConfig);
@@ -418,5 +452,27 @@ label {
   padding: 2rem;
   background-color: #f8f9fa;
   border-radius: 8px;
+}
+
+.setting-group {
+  margin-bottom: 1rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
 }
 </style>
