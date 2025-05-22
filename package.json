@@ -1,7 +1,7 @@
 {
-  "name": "ibeacon-tracker",
+  "name": "capacitor-estimote",
   "version": "0.0.1",
-  "description": "capacitor ibeacon tracking",
+  "description": "Capacitor plugin for Estimote beacons",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
   "types": "dist/esm/index.d.ts",
@@ -13,7 +13,7 @@
     "ios/Sources",
     "ios/Tests",
     "Package.swift",
-    "IbeaconTracker.podspec"
+    "CapacitorEstimote.podspec"
   ],
   "author": "Giorgos Papapanos",
   "license": "MIT",

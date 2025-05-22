@@ -1,4 +1,4 @@
-package com.mobics.ibeacon;
+package com.mobics.estimote;
 
 import android.Manifest;
 import android.bluetooth.BluetoothAdapter;
@@ -28,13 +28,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@CapacitorPlugin(
-    name = "EstimoteBeaconTracker",
-    permissions = {
+@CapacitorPlugin(name = "EstimoteBeaconTracker", permissions = {
         @Permission(strings = { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }),
-        @Permission(strings = { Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT }, alias = "bluetooth")
-    }
-)
+        @Permission(strings = { Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT }, alias = "bluetooth")
+})
 public class EstimoteBeaconTrackerPlugin extends Plugin {
     private static final String TAG = "EstimoteBeaconTracker";
     private ProximityObserver proximityObserver;
@@ -44,7 +42,9 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
     @Override
     public void load() {
         // We'll initialize the observer in startRanging
-    }    @PluginMethod
+    }
+
+    @PluginMethod
     public void startRanging(PluginCall call) {
         if (!hasRequiredPermissions(call)) {
             return;
@@ -52,7 +52,7 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
 
         String identifier = call.getString("identifier");
         JSArray tagsArray = call.getArray("tags");
-        
+
         if (tagsArray == null || tagsArray.length() == 0) {
             Log.e(TAG, "Tags parameter is missing or empty");
             call.reject("Tags are required");
@@ -60,35 +60,40 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
         }
 
         try {
-            EstimoteCloudCredentials cloudCredentials = new EstimoteCloudCredentials("g-papapanos1996-gmail-com--7am", "c2b96f6129d426e0592767a5010f7483");
-            Log.d(TAG, "Starting ranging with configuration - identifier: " + identifier + ", tags: " + tagsArray.toString());
+            EstimoteCloudCredentials cloudCredentials = new EstimoteCloudCredentials("g-papapanos1996-gmail-com--7am",
+                    "c2b96f6129d426e0592767a5010f7483");
+            Log.d(TAG, "Starting ranging with configuration - identifier: " + identifier + ", tags: "
+                    + tagsArray.toString());
 
             proximityObserver = new ProximityObserverBuilder(getContext(), cloudCredentials)
-                .withBalancedPowerMode()
-                .withEstimoteSecureMonitoringDisabled()
-                .build();
+                    .withBalancedPowerMode()
+                    .withTelemetryReportingDisabled()
+                    .withAnalyticsReportingDisabled()
+                    .withEstimoteSecureMonitoringDisabled()
+                    .build();
 
             // Create a zone for each tag
             for (int i = 0; i < tagsArray.length(); i++) {
                 try {
                     String tag = tagsArray.getString(i);
                     ProximityZone zone = new ProximityZoneBuilder()
-                        .forTag(tag)
-                        .inNearRange()
-                        // .inNearRange(): //approximately 0-3 meters
-                        // .inFarRange(): //approximately 3-7 meters
-                        // .inCustomRange(double)//lets you specify a custom range, but it's still an approximation
-                        .onEnter(context -> {
-                            Log.d(TAG, "Beacon entered range - Tag: " + tag);
-                            notifyBeaconEvent("beaconDidEnter", context, tag, "near");
-                            return kotlin.Unit.INSTANCE;
-                        })
-                        .onExit(context -> {
-                            Log.d(TAG, "Beacon exited range - Tag: " + tag);
-                            notifyBeaconEvent("beaconDidExit", context, tag, "far");
-                            return kotlin.Unit.INSTANCE;
-                        })
-                        .build();
+                            .forTag(tag)
+                            .inNearRange()
+                            // .inNearRange(): //approximately 0-3 meters
+                            // .inFarRange(): //approximately 3-7 meters
+                            // .inCustomRange(double)//lets you specify a custom range, but it's still an
+                            // approximation
+                            .onEnter(context -> {
+                                Log.d(TAG, "Beacon entered range - Tag: " + tag);
+                                notifyBeaconEvent("beaconDidEnter", context, tag, "near");
+                                return kotlin.Unit.INSTANCE;
+                            })
+                            .onExit(context -> {
+                                Log.d(TAG, "Beacon exited range - Tag: " + tag);
+                                notifyBeaconEvent("beaconDidExit", context, tag, "far");
+                                return kotlin.Unit.INSTANCE;
+                            })
+                            .build();
 
                     // Start observing this zone
                     String zoneIdentifier = identifier + "_" + tag;
@@ -98,7 +103,7 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
                     Log.e(TAG, "Error setting up zone for tag: " + i, e);
                 }
             }
-            
+
             call.resolve();
         } catch (Exception e) {
             Log.e(TAG, "Failed to start ranging", e);
@@ -110,11 +115,11 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
         JSObject data = new JSObject();
         JSArray beaconsArray = new JSArray();
         JSObject beaconData = new JSObject();
-        
+
         // Basic beacon information
         beaconData.put("tag", tag);
         beaconData.put("proximity", proximity);
-        
+
         // Add attachments if available
         Map<String, String> attachments = context.getAttachments();
         if (attachments != null && !attachments.isEmpty()) {
@@ -124,10 +129,10 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
             }
             beaconData.put("attachments", attachmentsObj);
         }
-        
+
         beaconsArray.put(beaconData);
         data.put("beacons", beaconsArray);
-        
+
         // Notify the specific event type and the generic range event
         notifyListeners(eventName, data);
         if (eventName.equals("beaconDidEnter") || eventName.equals("beaconDidExit")) {
@@ -146,18 +151,18 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
     }
 
     private boolean hasRequiredPermissions(PluginCall call) {
-        boolean fineLocation = ActivityCompat.checkSelfPermission(getContext(), 
-            Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-        boolean coarseLocation = ActivityCompat.checkSelfPermission(getContext(), 
-            Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean fineLocation = ActivityCompat.checkSelfPermission(getContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean coarseLocation = ActivityCompat.checkSelfPermission(getContext(),
+                Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
         boolean locationGranted = fineLocation || coarseLocation;
 
         boolean bluetoothGranted = true;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             bluetoothGranted = ActivityCompat.checkSelfPermission(getContext(),
-                Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(getContext(),
-                Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+                    Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+                    ActivityCompat.checkSelfPermission(getContext(),
+                            Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
         }
 
         if (!locationGranted || !bluetoothGranted) {
@@ -190,23 +195,23 @@ public class EstimoteBeaconTrackerPlugin extends Plugin {
         } else {
             // Save the call for later
             bridge.saveCall(call);
-            
+
             // Request permissions
             String[] permissions;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                permissions = new String[]{
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.BLUETOOTH_SCAN,
-                    Manifest.permission.BLUETOOTH_CONNECT
+                permissions = new String[] {
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.BLUETOOTH_SCAN,
+                        Manifest.permission.BLUETOOTH_CONNECT
                 };
             } else {
-                permissions = new String[]{
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
+                permissions = new String[] {
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
                 };
             }
-            
+
             pluginRequestPermissions(permissions, 1);
         }
     }

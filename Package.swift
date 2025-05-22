@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "IbeaconTracker",
+    name: "CapacitorEstimote",
     platforms: [.iOS(.v14)],
     products: [
         .library(
-            name: "IbeaconTracker",
+            name: "CapacitorEstimote",
             targets: ["BeaconTrackerPlugin"])
     ],
     dependencies: [

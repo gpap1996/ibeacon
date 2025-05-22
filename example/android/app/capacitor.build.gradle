@@ -9,7 +9,7 @@ android {
 
 apply from: "../capacitor-cordova-android-plugins/cordova.variables.gradle"
 dependencies {
-    implementation project(':ibeacon-tracker')
+    implementation project(':capacitor-estimote')
 
 }
 

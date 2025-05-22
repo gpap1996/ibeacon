@@ -1,10 +1,9 @@
 export interface BeaconData {
-  uuid: string;
-  major: number;
-  minor: number;
+  tag: string;
   rssi: number;
   distance: number;
   proximity: string;
+  attachments?: { [key: string]: string };
 }
 
 export interface BeaconRegion {

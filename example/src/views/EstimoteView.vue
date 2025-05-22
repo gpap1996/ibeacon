@@ -48,7 +48,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { EstimoteTracker } from 'ibeacon-tracker';
+import { BeaconTracker } from 'capacitor-estimote';
 
 // State
 const isScanning = ref(false);
@@ -70,7 +70,7 @@ const BEACON_CONFIG = {
 // Methods
 async function checkPermissions() {
   try {
-    const perms = await EstimoteTracker.checkPermissions();
+    const perms = await BeaconTracker.checkPermissions();
     permissions.value = perms;
   } catch (error) {
     console.error('Error checking permissions:', error);
@@ -84,7 +84,7 @@ async function startScanning() {
       tags: BEACON_CONFIG.tags,
     };
     console.log('Starting ranging with config:', JSON.stringify(rangingConfig));
-    await EstimoteTracker.startRanging(rangingConfig);
+    await BeaconTracker.startRanging(rangingConfig);
     console.log('Started ranging beacons');
     isScanning.value = true;
   } catch (error) {
@@ -95,7 +95,7 @@ async function startScanning() {
 
 const stopScanning = async () => {
   try {
-    await EstimoteTracker.stopRanging({
+    await BeaconTracker.stopRanging({
       identifier: BEACON_CONFIG.identifier,
     });
     console.log('Stopped ranging');
@@ -115,7 +115,7 @@ function formatLastSeen(timestamp) {
 }
 
 // Event Listeners
-EstimoteTracker.addListener('beaconDidEnter', (data) => {
+BeaconTracker.addListener('beaconDidEnter', (data) => {
   console.log('beaconDidEnter:', JSON.stringify(data));
   if (data && data.beacons) {
     data.beacons.forEach((beacon) => {
@@ -131,7 +131,7 @@ EstimoteTracker.addListener('beaconDidEnter', (data) => {
   }
 });
 
-EstimoteTracker.addListener('beaconDidExit', (data) => {
+BeaconTracker.addListener('beaconDidExit', (data) => {
   console.log('beaconDidExit:', JSON.stringify(data));
   if (data && data.beacons) {
     data.beacons.forEach((beacon) => {
@@ -143,7 +143,7 @@ EstimoteTracker.addListener('beaconDidExit', (data) => {
   }
 });
 
-EstimoteTracker.addListener('beaconsDidRangeEvent', (data) => {
+BeaconTracker.addListener('beaconsDidRangeEvent', (data) => {
   console.log('beaconsDidRangeEvent:', JSON.stringify(data));
   if (data && data.beacons) {
     data.beacons.forEach((beacon) => {
